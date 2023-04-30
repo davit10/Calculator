@@ -4,375 +4,242 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Data.SqlClient;
+using System.Configuration;
 
 namespace ConsoleApp22
 {
-    internal class Program
+    
+    class Connect
     {
-        static void Main(string[] args)
+        Program p = new Program();
+        static string conn = ConfigurationManager.ConnectionStrings["myDbConnection"].ConnectionString;
+
+        public void Write(string exp)
         {
-            int Max(int[] a)
+            try
             {
-                int max = a[0];
-                for (int i = 1; i < a.Length; i++)
+                SqlConnection connection = new SqlConnection(conn);
+                connection.Open();
+                String sql = $"INSERT INTO calchistory (Expression,Result) VALUES ({exp},{p.Calc(exp)})";
+                SqlCommand cmd = new SqlCommand(sql, connection);
+                cmd.ExecuteNonQuery();
+                using(var reader = cmd.ExecuteReader())
                 {
-                    if (max < a[i] && a[i] != -1)
-                        max = a[i];
+                    while (reader.Read())
+                    {
+                        Console.WriteLine("Saved");
+                    }
+                    reader.Close();
+                    connection.Close();
                 }
-                return max;
+                
+                
             }
-            int Min(int[] a)
+            catch (Exception err)
             {
-                int min = 3000;//if array elements are -1
-                for (int i = 0; i < a.Length; i++)
-                {
-                    if (min > a[i] && a[i] != -1)
-                        min = a[i];
-                }
-                return min;
-            }
-            string Mult(string fs)
-            {
-                int indexOfMul = fs.IndexOf("*");
-                int indexOfDiv = fs.IndexOf("/");
-                int indexOfPlu = fs.IndexOf("+");
-                int indexOfMin = fs.IndexOf("-");
-
-                string newStr = "";
-                string befMul = fs.Substring(0, indexOfMul);
-                string aftMul = fs.Substring(indexOfMul + 1);
-                int[] b = { befMul.LastIndexOf("+"), befMul.LastIndexOf('-') };
-                string first = befMul.Substring(Max(b) + 1);
-                decimal n1 = decimal.Parse(first);
-                if (aftMul[0] == '-')
-                {
-                    n1 *= -1;
-                    aftMul = aftMul.Substring(1);
-                }
-
-                int[] a = { aftMul.IndexOf("-"), aftMul.IndexOf("/"), aftMul.IndexOf("+") };
-                string second = "";
-                if (Min(a) != 3000)
-                    second = aftMul.Substring(0, Min(a));
-                else
-                    second = aftMul;
-                decimal n2 = decimal.Parse(second);
-
-
-                decimal newNumber = n1 * n2;
-
-
-                if (fs.Contains($"{first}*-{second}"))
-                    newStr = fs.Replace($"{first}*-{second}", $"{newNumber}");
-                else
-                    newStr = fs.Replace($"{first}*{second}", $"{newNumber}");
-
-                return newStr;
-
-
+                Console.WriteLine("Error: " + err);
             }
 
-            string Divi(string fs)
+        }
+    }
+    class MultiplyDivide
+    {
+        protected string Service(string str, char mark)
+        {
+            char other = '*';
+            if (mark == '*')
+                other = '/';
+
+            string newStr;
+            var befMul = str.Substring(0, str.IndexOf(mark));
+            var aftMul = str.Substring(str.IndexOf(mark) + 1);
+            int[] b = { befMul.LastIndexOf("+"), befMul.LastIndexOf('-') };
+            string first = befMul.Substring(b.Max() + 1);
+            decimal n1 = decimal.Parse(first);
+            if (aftMul[0] == '-')
             {
-                int indexOfMul = fs.IndexOf("*");
-                int indexOfDiv = fs.IndexOf("/");
-                int indexOfPlu = fs.IndexOf("+");
-                int indexOfMin = fs.IndexOf("-");
-
-                string newStr = "";
-                string befDiv = fs.Substring(0, indexOfDiv);
-                string aftDiv = fs.Substring(indexOfDiv + 1);
-                int[] b = { befDiv.LastIndexOf("+"), befDiv.LastIndexOf('-') };
-                string first = befDiv.Substring(Max(b) + 1);
-                decimal n1 = decimal.Parse(first);
-                if (aftDiv[0] == '-')
-                {
-                    n1 *= -1;
-                    aftDiv = aftDiv.Substring(1);
-                }
-
-                int[] a = { aftDiv.IndexOf("-"), aftDiv.IndexOf("*"), aftDiv.IndexOf("+") };
-                string second = "";
-                if (Min(a) != 3000)
-                    second = aftDiv.Substring(0, Min(a));
-                else
-                    second = aftDiv;
-                decimal n2 = decimal.Parse(second);
-
-                if (n2 == 0)
-                    return "Tivy chi kareli bajanel 0i";
-                decimal newNumber = n1 / n2;
-
-
-                if (fs.Contains($"{first}/-{second}"))
-                    newStr = fs.Replace($"{first}/-{second}", $"{newNumber}");
-                else
-                    newStr = fs.Replace($"{first}/{second}", $"{newNumber}");
-
-                return newStr;
-
-
+                n1 *= -1;
+                aftMul = aftMul.Substring(1);
             }
 
-            string PlusMin(string str)
+            List<int> a = new List<int>() { };
+
+            if (aftMul.IndexOf('-') != -1)
+                a.Add(aftMul.IndexOf("-"));
+            if (aftMul.IndexOf('+') != -1)
+                a.Add(aftMul.IndexOf("+"));
+            if (aftMul.IndexOf(other) != -1)
+                a.Add(aftMul.IndexOf(other));
+
+            string second;
+            if (a.Count != 0)
+                second = aftMul.Substring(0, a.Min());
+            else
+                second = aftMul;
+            decimal n2 = decimal.Parse(second);
+            decimal newNumber;
+            if (mark == '*')
+                newNumber = n1 * n2;
+            else
+                newNumber = n1 / n2;
+
+
+            if (str.Contains($"{first}{mark}-{second}"))
+                newStr = str.Replace($"{first}{mark}-{second}", $"{newNumber}");
+            else
+                newStr = str.Replace($"{first}{mark}{second}", $"{newNumber}");
+
+            return newStr;
+        }
+    }
+    class Program : MultiplyDivide
+    {
+
+        string Multiply(string str)
+        {
+            return Service(str,'*');
+        }
+        string Divide(string str)
+        {
+            return Service(str,'/');
+        }
+        string AddSubtract(string str)
+        {
+            string newStr;
+
+            if (str.Contains("+-"))
+                return AddSubtract(str.Replace("+-", "-"));
+            else if (str.Contains("--"))
+                return AddSubtract(str.Replace("--", "+"));
+            if (!str.Contains("-") && !str.Contains("+"))
+                return str;
+
+            int[] a = { str.Substring(1).IndexOf("-"), str.Substring(1).IndexOf("+") };
+            int[] b = { str.IndexOf("-"), str.IndexOf("+") };
+
+            int aMin = (a.Min() == -1) ? a.Max() : a.Min();
+            int bMin = (b.Min() == -1) ? b.Max() : b.Min();
+            int nextMark = (str[0] == '-') ? aMin + 1 : bMin;
+
+            decimal n1 = decimal.Parse(str.Substring(0, nextMark));
+            string after = str.Substring(nextMark + 1);
+
+            int[] c = { after.IndexOf("+"), after.IndexOf("-") };
+
+            int afterNextMark = (c.Min() != -1) ? c.Min() : c.Max();
+            decimal n2;
+            if (afterNextMark == -1)
+                n2 = decimal.Parse(str.Substring(nextMark + 1));
+            else
+                n2 = decimal.Parse(str.Substring(nextMark + 1, afterNextMark));
+
+            if (str[nextMark] == '-')
             {
-                string newStr = "";
-
-                if (str.Contains("+-"))
-                    return PlusMin(str.Replace("+-", "-"));
-                if (str.StartsWith("--"))
-                    return PlusMin(str.Replace("--", ""));
-                else if (str.Contains("--"))
-                    return PlusMin(str.Replace("--", "+"));
-                if (!str.Contains("-") && !str.Contains("+"))
-                    return str;
-
-                if (str.IndexOf("+") == -1 && str.IndexOf("-") != 0)
-                {
-
-                    string befMin = str.Substring(0, str.IndexOf("-"));
-                    string aftMin = str.Substring(str.IndexOf("-") + 1);
-                    int[] a = { aftMin.IndexOf("-"), aftMin.IndexOf("+") };
-                    decimal n1 = decimal.Parse(befMin);
-
-                    decimal n2 = 0;
-
-                    if (Min(a) == 3000)
-                        n2 = decimal.Parse(aftMin);
-                    else
-                        n2 = decimal.Parse(aftMin.Substring(0, Min(a)));
-
-                    decimal newNumber = n1 - n2;
-
-                    newStr = str.Replace($"{n1}-{n2}", $"{newNumber}");
-
-                }
-                else if (str.IndexOf("-") == -1)
-                {
-                    string befMin = str.Substring(0, str.IndexOf("+"));
-                    string aftMin = str.Substring(str.IndexOf("+") + 1);
-                    int[] a = { aftMin.IndexOf("-"), aftMin.IndexOf("+") };
-
-                    decimal n1 = decimal.Parse(befMin);
-                    decimal n2 = 0;
-                    if (Min(a) == 3000)
-                        n2 = decimal.Parse(aftMin);
-                    else
-                        n2 = decimal.Parse(aftMin.Substring(0, Min(a)));
-
-
-                    decimal newNumber = n1 + n2;
-
-                    newStr = str.Replace($"{n1}+{n2}", $"{newNumber}");
-
-                }
-                else if (str.IndexOf("-") == 0 && !str.Contains("+") && str.LastIndexOf("-") == 0)
-                {
-                    return str;
-                }
-                else if (str.IndexOf("-") == 0 && (str.Contains("+") || str.LastIndexOf("-") != 0))
-                {
-                    string wom = str.Substring(1);
-                    int[] b = { wom.IndexOf("-"), wom.IndexOf("+") };
-                    string befMin = str.Substring(0, Min(b) + 1);
-                    string aftMin = str.Substring(Min(b) + 2);
-                    int[] a = { aftMin.IndexOf("-"), aftMin.IndexOf("+") };
-
-                    decimal n1 = decimal.Parse(befMin);
-
-                    decimal n2 = 0;
-
-
-                    if (Min(a) == 3000)
-                        n2 = decimal.Parse(aftMin);
-                    else
-                        n2 = decimal.Parse(aftMin.Substring(0, Min(a)));
-
-
-                    decimal newNumber = 0;
-
-                    if (Min(b) == wom.IndexOf("-"))
-                    {
-                        newNumber = n1 - n2;
-                        newStr = str.Replace($"{n1}-{n2}", $"{newNumber}");
-                    }
-
-                    else
-                    {
-                        newNumber = n1 + n2;
-                        newStr = str.Replace($"{n1}+{n2}", $"{newNumber}");
-                    }
-
-
-
-                }
-                else if (str.IndexOf("+") > str.IndexOf("-"))
-                {
-                    string befMin = str.Substring(0, str.IndexOf("-"));
-                    string aftMin = str.Substring(str.IndexOf("-") + 1);
-                    int[] a = { aftMin.IndexOf("-"), aftMin.IndexOf("+") };
-                    decimal n1 = decimal.Parse(befMin);
-
-                    decimal n2 = 0;
-
-                    if (Min(a) == 3000)
-                        n2 = decimal.Parse(aftMin);
-                    else
-                        n2 = decimal.Parse(aftMin.Substring(0, Min(a)));
-
-
-                    decimal newNumber = n1 - n2;
-
-                    newStr = str.Replace($"{n1}-{n2}", $"{newNumber}");
-
-                }
-                else if (str.IndexOf("+") < str.IndexOf("-"))
-                {
-                    string befMin = str.Substring(0, str.IndexOf("+"));
-                    string aftMin = str.Substring(str.IndexOf("+") + 1);
-                    int[] a = { aftMin.IndexOf("-"), aftMin.IndexOf("+") };
-                    decimal n1 = decimal.Parse(befMin);
-                    decimal n2 = 0;
-
-                    if (Min(a) == 3000)
-                        n2 = decimal.Parse(aftMin);
-                    else
-                        n2 = decimal.Parse(aftMin.Substring(0, Min(a)));
-
-                    decimal newNumber = n1 + n2;
-
-                    newStr = str.Replace($"{n1}+{n2}", $"{newNumber}");
-
-                }
-
-                if ((newStr.Contains("+")) || (newStr.Contains("-") && newStr.IndexOf("-") != 0 && newStr.LastIndexOf("-") != 0))
-                {
-                    return PlusMin(newStr);
-                }
-
-                return newStr;
+                decimal newNumber = n1 - n2;
+                newStr = str.Replace($"{n1}-{n2}", $"{newNumber}");
+            }
+            else
+            {
+                decimal newNumber = n1 + n2;
+                newStr = str.Replace($"{n1}+{n2}", $"{newNumber}");
             }
 
-            string Count(string fs)
+            if ((newStr.Contains("+") || (newStr.Contains("-")) && newStr.IndexOf("-") != 0 && newStr.LastIndexOf("-") != 0))
+                return AddSubtract(newStr);
+
+            return newStr;
+        }
+        string Count(string fs)
+        {
+            while (fs.Substring(1).Contains("-") || fs.Substring(1).Contains("+") || fs.Substring(1).Contains("/") || fs.Substring(1).Contains("*"))
             {
-                while (fs.Substring(1).Contains("-") || fs.Substring(1).Contains("+") || fs.Substring(1).Contains("/") || fs.Substring(1).Contains("*"))
+                if ((fs.Contains("*") && fs.IndexOf("*") < fs.IndexOf("/")) || (fs.Contains("*") && !fs.Contains("/")))
                 {
-                    if (fs.Contains("*") && fs.IndexOf("*") < fs.IndexOf("/"))
-                    {
-                        fs = Mult(fs);
+                    fs = Multiply(fs);
+                    continue;
+                }
+                else if ((fs.Contains("/") && fs.IndexOf("*") > fs.IndexOf("/")) || (fs.Contains("/") && !fs.Contains("*")))
+                {
+                    fs = Divide(fs);
+                    if (fs == "Tivy chi kareli bajanel 0i")
+                        return "Tivy chi kareli bajanel 0i";
+                    continue;
+                }
+                else if (!fs.Contains("/") && !fs.Contains("*") && (fs.Contains("+") || fs.Contains("-")))
+                {
+                    fs = AddSubtract(fs);
 
-                        continue;
-                    }
-                    else if (fs.Contains("*") && !fs.Contains("/"))
-                    {
-                        fs = Mult(fs);
-                        continue;
-                    }
-                    else if (fs.Contains("/") && fs.IndexOf("*") > fs.IndexOf("/"))
-                    {
-                        fs = Divi(fs);
-                        if (fs == "Tivy chi kareli bajanel 0i")
-                            return "Tivy chi kareli bajanel 0i";
-                        continue;
-                    }
-                    else if (fs.Contains("/") && !fs.Contains("*"))
-                    {
-                        fs = Divi(fs);
-                        if (fs == "Tivy chi kareli bajanel 0i")
-                            return "Tivy chi kareli bajanel 0i";
-                        continue;
-                    }
-                    else if (!fs.Contains("/") && !fs.Contains("*") && (fs.Contains("+") || fs.Contains("-")))
-                    {
-                        fs = PlusMin(fs);
-                        continue;
-                    }
-
+                    continue;
                 }
 
-                return fs;
             }
-
-            int BracketCount(string str)
-            {
-                int count = 0;
-                if (str == "")
-                    return count;
-                for (int i = 0; i < str.Length - 1; i++)
-                {
-                    if (str[i] == '(')
-                        count++;
-                }
+            return fs;
+        }
+        int BracketCount(string str)
+        {
+            int count = 0;
+            if (str == "")
                 return count;
-            }
-            string HandleBracket(string str)
+            for (int i = 0; i < str.Length - 1; i++)
             {
-                string s = str;
+                if (str[i] == '(')
+                    count++;
+            }
+            return count;
+        }
+        string HandleBracket(string str)
+        {
+            string s = str;
 
+            if (str.Contains("("))
+            {
+                s = s.Substring(s.IndexOf("(") + 1, s.IndexOf(")") - 1 - s.IndexOf("("));
                 if (s.Contains("("))
                 {
-                    s = s.Substring(s.IndexOf("(") + 1, s.IndexOf(")") - 1 - s.IndexOf("("));
-                    if (s.Contains("("))
+                    for (int i = 0; i <= BracketCount(s); i++)
                     {
-                        for (int i = 0; i <= BracketCount(s); i++)
-                        {
-
-                            if (s.Contains("("))
-                                s = s.Substring(s.IndexOf("(") + 1);
-                            else
-                                s = Calc(s).ToString();
-                        }
+                        if (s.Contains("("))
+                            s = s.Substring(s.IndexOf("(") + 1);
+                        else
+                            s = Calc(s).ToString();
                     }
                 }
-                else
-                {
-                    return s;
-                }
-                return HandleBracket(str.Replace($"({s})", Calc(s).ToString()));
-
             }
+            else
+                return s;
+            return HandleBracket(str.Replace($"({s})", Calc(s).ToString()));
+        }
+        public decimal Calc(string str)
+        {
+            string num;
+            str = str.Replace(" ", "");
+            num = HandleBracket(str);
+            num = Count(num);
+            decimal finalNumber = decimal.Parse(num);
+            return Math.Round(finalNumber, 4);
+        }
 
-            decimal Calc(string str)
-            {
-                string num = "";
-                try
-                {
-                    num = HandleBracket(str);
-                    num = Count(num);
-                    decimal finalNumber = decimal.Parse(num);
 
 
-                    return Math.Round(finalNumber, 4);
-                }
-                catch
-                {
-                    if (num == "Tivy chi kareli bajanel 0i")
-                        Console.WriteLine("Tivy chi kareli bajanel 0i");
-                    else
-                        Console.WriteLine("Ardyunqy shat mec tiv e");
-                    return 0;
-                }
+        static void Main(string[] args)
+        {
+            Program p = new Program();
+            Connect c = new Connect();
 
-            }
 
-            while (true)
-            {
-                Console.WriteLine("Nermucel artahaytutyun");
+
+
+            //while (true)
+            //{
+                Console.WriteLine("Input the expression");
                 string exp = Console.ReadLine();
-                Console.WriteLine("Result = " + Calc(exp));
-            }
+                Console.WriteLine("Result = " + p.Calc(exp));
+                c.Write(exp);
+            //}
 
 
-            //string connect = "127.0.0.1 via TCP/IP";
-            //SqlConnection con = new SqlConnection(connect);
-            //con.Open();
 
-            //string query = $"INSERT INTO calchistory (Expression,Result) VALUES ({exp},{Calc(exp)})";
 
-            //SqlCommand cmd = new SqlCommand(query,con);
-            //cmd.ExecuteNonQuery();
-
-            //con.Close();
 
         }
     }
